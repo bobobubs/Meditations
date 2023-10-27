@@ -1,4 +1,3 @@
-from moviepy.editor import *
 import cv2
 import numpy as np
 
@@ -14,16 +13,8 @@ def draw_rectangle(event, x, y, flags, param):
     elif event == cv2.EVENT_MOUSEMOVE:
         if drawing:
             img_temp = img_copy.copy()
-            dx = x - current_box[0][0]  # Change in x
-            dy = y - current_box[0][1]  # Change in y
-
-            # Maintain a 9:16 aspect ratio
-            if dx * 16 > dy * 9:
-                # Adjust dx to match the aspect ratio
-                dx = dy * 9 / 16
-            else:
-                # Adjust dy to match the aspect ratio
-                dy = dx * 16 / 9
+            # Ensure a 1:1 aspect ratio
+            dx = dy = max(x - current_box[0][0], y - current_box[0][1])
 
             # Calculate the corners of the rectangle
             top_left = (current_box[0][0], current_box[0][1])
@@ -33,16 +24,8 @@ def draw_rectangle(event, x, y, flags, param):
             cv2.imshow('Draw Start and End Boxes', img_temp)
     elif event == cv2.EVENT_LBUTTONUP:
         drawing = False
-        dx = x - current_box[0][0]  # Change in x
-        dy = y - current_box[0][1]  # Change in y
-
-        # Maintain a 9:16 aspect ratio
-        if dx * 16 > dy * 9:
-            # Adjust dx to match the aspect ratio
-            dx = dy * 9 / 16
-        else:
-            # Adjust dy to match the aspect ratio
-            dy = dx * 16 / 9
+        # Ensure a 1:1 aspect ratio
+        dx = dy = max(x - current_box[0][0], y - current_box[0][1])
 
         # Calculate the corners of the rectangle
         top_left = (current_box[0][0], current_box[0][1])
@@ -52,6 +35,7 @@ def draw_rectangle(event, x, y, flags, param):
             start_box = [top_left, bottom_right]
         elif not end_box:
             end_box = [top_left, bottom_right]
+
 
 
 def get_boxes(image_path):
@@ -85,20 +69,30 @@ def get_boxes(image_path):
 
     return start_box, end_box
 
+
+def smoothstep(edge0, edge1, x):
+    # Scale, bias and saturate x to 0..1 range
+    x = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0)
+    # Evaluate polynomial
+    return x * x * (3 - 2 * x)
+
+def clamp(x, lower_limit, upper_limit):
+    return max(lower_limit, min(x, upper_limit))
+
+
 def create_zoom_video(image_path, start_box, end_box, video_path, duration):
     # Load the image
     img = cv2.imread(image_path)
     
     # Set the dimensions of the video frames to maintain a 9:16 aspect ratio
-    frame_width = 900  # You can adjust this value
-    frame_height = int(frame_width * (16 / 9))
+    frame_width = frame_height = 900
     
     # Define the codec and create VideoWriter object
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     out = cv2.VideoWriter(video_path, fourcc, 20.0, (frame_width, frame_height))
     
     # Calculate the number of frames based on the duration and frame rate
-    num_frames = int(duration * 60)  # Assuming a frame rate of 20 fps
+    num_frames = int(duration * 30)
     
     for i in range(num_frames):
         # Interpolate the coordinates of the box for the current frame
@@ -128,7 +122,8 @@ def create_zoom_video(image_path, start_box, end_box, video_path, duration):
 
 # Now you can use the function like so:
 start_box, end_box = get_boxes('./images/1_1.png')
-create_zoom_video('./images/1_1.png', start_box, end_box, 'output@60.avi', 5)
+create_zoom_video('./images/1_1.png', start_box, end_box, 'output@60.avi', 50)
+
 
 
 # def apply_ken_burns(image_path, video_path, duration=5, fps=30):
