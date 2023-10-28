@@ -1,4 +1,5 @@
 import cv2
+from moviepy.editor import *
 import numpy as np
 
 # Global variables to hold the coordinates of the boxes
@@ -79,8 +80,14 @@ def smoothstep(edge0, edge1, x):
 def clamp(x, lower_limit, upper_limit):
     return max(lower_limit, min(x, upper_limit))
 
+def get_audio_duration(audio_path):
+    audio = AudioFileClip(audio_path)
+    return audio.duration
 
-def create_zoom_video(image_path, start_box, end_box, video_path, duration):
+def create_zoom_video_with_audio(image_path, start_box, end_box, video_path, audio_path):
+    audio_duration = get_audio_duration(audio_path)
+    video_duration = audio_duration + 3  # add 3 seconds to audio duration
+    
     # Load the image
     img = cv2.imread(image_path)
     
@@ -89,10 +96,10 @@ def create_zoom_video(image_path, start_box, end_box, video_path, duration):
     
     # Define the codec and create VideoWriter object
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    out = cv2.VideoWriter(video_path, fourcc, 20.0, (frame_width, frame_height))
+    out = cv2.VideoWriter(video_path, fourcc, 30.0, (frame_width, frame_height))
     
     # Calculate the number of frames based on the duration and frame rate
-    num_frames = int(duration * 30)
+    num_frames = int(video_duration * 30)
     
     for i in range(num_frames):
         # Interpolate the coordinates of the box for the current frame
@@ -119,61 +126,20 @@ def create_zoom_video(image_path, start_box, end_box, video_path, duration):
     
     # Release the video writer
     out.release()
-
-# Now you can use the function like so:
-start_box, end_box = get_boxes('./images/1_1.png')
-create_zoom_video('./images/1_1.png', start_box, end_box, 'output@60.avi', 50)
-
-
-
-# def apply_ken_burns(image_path, video_path, duration=5, fps=30):
-#     start_box, end_box = get_boxes(image_path)
     
-#     # Load the image
-#     img = cv2.imread(image_path)
-#     height, width, _ = img.shape
+    # Load the generated video and the audio file
+    video = VideoFileClip(video_path)
+    audio = AudioFileClip(audio_path)
 
-#     # Get the coordinates of the start and end boxes
-#     (start_x1, start_y1), (start_x2, start_y2) = start_box
-#     (end_x1, end_y1), (end_x2, end_y2) = end_box
+    # Set the audio of the video
+    final_video = video.set_audio(audio)
 
-#     # Define the start and end zoom/pan factors and positions based on the boxes
-#     start_factor, end_factor = width / (start_x2 - start_x1), width / (end_x2 - end_x1)
-#     start_position = (start_x1 * start_factor, start_y1 * start_factor)
-#     end_position = (end_x1 * end_factor, end_y1 * end_factor)
+    # Write the result to a file
+    final_video.write_videofile("output_with_audio.avi", codec="libx264", fps=24)
+start_box, end_box = get_boxes('./images/1_1.png')
+create_zoom_video_with_audio('./images/1_1.png', start_box, end_box, 'output.avi', './audio/1_1.mp3')
 
-#     # Calculate the number of frames
-#     total_frames = duration * fps
 
-#     # Define the video writer with 9:16 aspect ratio
-#     new_width = int(height * 9 / 16)
-#     fourcc = cv2.VideoWriter_fourcc(*'XVID')
-#     out = cv2.VideoWriter(video_path, fourcc, fps, (new_width, height))
-
-#     for frame_num in range(total_frames):
-#         # Interpolate the zoom/pan factors and positions
-#         factor = np.interp(frame_num, [0, total_frames], [start_factor, end_factor])
-#         position = (
-#             np.interp(frame_num, [0, total_frames], [start_position[0], end_position[0]]),
-#             np.interp(frame_num, [0, total_frames], [start_position[1], end_position[1]])
-#         )
-
-#         # Generate the transformation matrix
-#         M = np.float32([[factor, 0, -position[0]], [0, factor, -position[1]]])
-
-#         # Apply the affine transformation
-#         dst = cv2.warpAffine(img, M, (width, height))
-
-#         # Crop to maintain 9:16 aspect ratio
-#         x_offset = (width - new_width) // 2
-#         dst_cropped = dst[:, x_offset:x_offset+new_width]
-
-#         # Write the frame to the video
-#         out.write(dst_cropped)
-#         print("writing a frame")
-
-#     # Release the video writer
-#     out.release()
 
 
 
